@@ -1,27 +1,55 @@
 package com.example.videoshortfirebase;
 
+
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.widget.VideoView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
 import java.util.List;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHolder> {
     private List<VideoItem> videoList;
     private Context context;
+    private static final String SUPABASE_URL = "https://oqdoljigjwouthaorjev.supabase.co";
+    private static final String API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xZG9samlnandvdXRoYW9yamV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQzMzM2NjcsImV4cCI6MjA1OTkwOTY2N30.89WAShh2B0wCxoi5QQDR4COB2YV9vtpmPkBdGcg0wBg";
+
+    private String accessToken;
+    private String userId;
+    private OkHttpClient client = new OkHttpClient();
+    private SessionManager sessionManager;
+
 
     public VideoAdapter(Context context, List<VideoItem> videoList) {
         this.context = context;
         this.videoList = videoList;
+        this.sessionManager = new SessionManager(context);
     }
 
     @NonNull
@@ -37,6 +65,11 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHol
         holder.title.setText(item.title);
         holder.description.setText(item.description);
         Log.d("VideoDebug", "Video URL: " + item.videoUrl);
+        if (item.videoUrl != null) {
+            holder.videoView.setVideoURI(Uri.parse(item.videoUrl));
+        } else {
+            Log.e("VideoDebug", "Video URL is null");
+        }
 
         holder.progressBar.setVisibility(View.VISIBLE);
         holder.videoView.setVideoURI(Uri.parse(item.videoUrl));
@@ -46,6 +79,16 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHol
             mp.setLooping(true);
             holder.videoView.start();
         });
+        holder.likeButton.setOnClickListener(v -> {
+            sendReaction(item.videoId, "like", holder);
+        });
+
+        holder.dislikeButton.setOnClickListener(v -> {
+            sendReaction(item.videoId, "dislike", holder);
+        });
+
+        loadReactionState(item.videoId, holder);
+
     }
 
     @Override
@@ -55,8 +98,9 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHol
 
     public class VideoViewHolder extends RecyclerView.ViewHolder {
         VideoView videoView;
-        TextView title, description;
+        TextView title, description,likeCount,dislikeCount;
         ProgressBar progressBar;
+        ImageView likeButton, dislikeButton;
 
         public VideoViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -64,6 +108,171 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHol
             title = itemView.findViewById(R.id.textVideoTitle);
             description = itemView.findViewById(R.id.textVideoDescription);
             progressBar = itemView.findViewById(R.id.videoProgressBar);
+            likeButton = itemView.findViewById(R.id.favorites);
+            dislikeButton = itemView.findViewById(R.id.dislike);
+            likeCount = itemView.findViewById(R.id.likeCount);  // Khai báo likeCount
+            dislikeCount = itemView.findViewById(R.id.dislikeCount);
         }
     }
+    private void sendReaction(String videoId, String reaction, VideoViewHolder holder) {
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/video_reactions?video_id=eq." + videoId + "&user_id=eq." + sessionManager.getUserId())
+                .addHeader("apikey", API_KEY)
+                .addHeader("Authorization", "Bearer " + sessionManager.getAccessToken())
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                Log.e("SendReaction", "Request failed: " + e.getMessage());
+            }
+
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body().string();
+                try {
+                    JSONArray arr = new JSONArray(body);
+                    boolean hasReaction = arr.length() > 0;
+
+                    // Nếu đã có phản ứng, xóa phản ứng
+                    if (hasReaction) {
+                        JSONObject reactionData = arr.getJSONObject(0);
+                        String currentReaction = reactionData.getString("reaction");
+
+                        if (currentReaction.equals(reaction)) {
+                            // Hủy phản ứng nếu người dùng nhấn lại nút đã tương tác
+                            deleteReaction(videoId, reaction, holder);
+                        } else {
+                            // Nếu phản ứng khác, thay đổi phản ứng
+                            updateReaction(videoId, reaction, holder);
+                        }
+                    } else {
+                        // Nếu chưa có phản ứng, thêm phản ứng mới
+                        addReaction(videoId, reaction, holder);
+                    }
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+    private void addReaction(String videoId, String reaction, VideoViewHolder holder) {
+        JSONObject json = new JSONObject();
+        try {
+            json.put("user_id", sessionManager.getUserId());
+            json.put("video_id", videoId);
+            json.put("reaction", reaction);
+        } catch (JSONException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        RequestBody body = RequestBody.create(json.toString(), MediaType.get("application/json"));
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/video_reactions?on_conflict=video_id,user_id")
+                .addHeader("apikey", API_KEY)
+                .addHeader("Authorization", "Bearer " + sessionManager.getAccessToken())
+                .post(body)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                Log.e("AddReaction", "Request failed: " + e.getMessage());
+            }
+
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                if (response.isSuccessful()) {
+                    ((Activity) context).runOnUiThread(() -> {
+                        loadReactionState(videoId, holder);
+                    });
+                } else {
+                    Log.e("AddReaction", "Error: " + response.code());
+                }
+            }
+        });
+    }
+
+    private void updateReaction(String videoId, String reaction, VideoViewHolder holder) {
+        deleteReaction(videoId, reaction, holder);
+        addReaction(videoId, reaction, holder);
+    }
+
+    private void deleteReaction(String videoId, String reaction, VideoViewHolder holder) {
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/video_reactions?video_id=eq." + videoId + "&user_id=eq." + sessionManager.getUserId())
+                .addHeader("apikey", API_KEY)
+                .addHeader("Authorization", "Bearer " + sessionManager.getAccessToken())
+                .delete()
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                Log.e("DeleteReaction", "Request failed: " + e.getMessage());
+            }
+
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                if (response.isSuccessful()) {
+                    ((Activity) context).runOnUiThread(() -> {
+                        loadReactionState(videoId, holder);
+                    });
+                } else {
+                    Log.e("DeleteReaction", "Error: " + response.code());
+                }
+            }
+        });
+    }
+
+
+    private void loadReactionState(String videoId, VideoViewHolder holder) {
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/video_reactions?video_id=eq." + videoId + "&user_id=eq." + sessionManager.getUserId())
+                .addHeader("apikey", API_KEY)
+                .addHeader("Authorization", "Bearer " + sessionManager.getAccessToken())
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                Log.e("Reaction", "Failed to load state: " + e.getMessage());
+            }
+
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body().string();
+                try {
+                    JSONArray arr = new JSONArray(body);
+                    ((Activity) context).runOnUiThread(() -> {
+                        try {
+                            int likeCount = 0;
+                            int dislikeCount = 0;
+                            if (arr.length() > 0) {
+                                String reaction = arr.getJSONObject(0).getString("reaction");
+                                if (reaction.equals("like")) {
+                                    holder.likeButton.setColorFilter(Color.RED);
+                                    holder.dislikeButton.setColorFilter(Color.GRAY);
+                                    likeCount++;
+                                } else {
+                                    holder.likeButton.setColorFilter(Color.GRAY);
+                                    holder.dislikeButton.setColorFilter(Color.BLUE);
+                                    dislikeCount++;
+                                }
+                            } else {
+                                holder.likeButton.setColorFilter(Color.GRAY);
+                                holder.dislikeButton.setColorFilter(Color.GRAY);
+                            }
+                            // Cập nhật tổng số like/dislike
+                            holder.likeCount.setText(likeCount + " Likes");
+                            holder.dislikeCount.setText(dislikeCount + " Dislikes");
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+    private void retrySendReaction(String videoId, String reaction, VideoViewHolder holder) {
+        sendReaction(videoId, reaction, holder);
+    }
+
 }

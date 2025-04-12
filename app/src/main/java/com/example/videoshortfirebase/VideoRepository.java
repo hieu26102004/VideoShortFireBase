@@ -38,14 +38,14 @@ public class VideoRepository {
                     String json = response.body().string();
                     try {
                         JSONArray array = new JSONArray(json);
-                        for (int i = 0; i < array.length(); i++) {
-                            JSONObject obj = array.getJSONObject(i);
-                            videos.add(new VideoItem(
-                                    obj.getString("video_url"),
-                                    obj.getString("title"),
-                                    obj.getString("description")
-                            ));
-                        }
+//                        for (int i = 0; i < array.length(); i++) {
+//                            JSONObject obj = array.getJSONObject(i);
+//                            videos.add(new VideoItem(
+//                                    obj.getString("video_url"),
+//                                    obj.getString("title"),
+//                                    obj.getString("description")
+//                            ));
+//                        }
                         new Handler(Looper.getMainLooper()).post(() -> callback.onSuccess(videos));
                     } catch (Exception e) {
                         new Handler(Looper.getMainLooper()).post(() -> callback.onError("Parse error"));

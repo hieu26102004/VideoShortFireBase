@@ -3,6 +3,7 @@ package com.example.videoshortfirebase;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -25,8 +26,10 @@ import java.util.Map;
 
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
@@ -35,13 +38,17 @@ public class MainActivity extends AppCompatActivity {
     private ActivityMainBinding binding;
     private ViewPager2 vpager;
     private List<VideoItem> videoList = new ArrayList<>();
-    private String SUPABASE_URL = SupabaseConfig.SUPABASE_URL;
-    private String API_KEY = SupabaseConfig.SUPABASE_API_KEY;
+    private final String SUPABASE_URL = SupabaseConfig.SUPABASE_URL;
+    private final String API_KEY = SupabaseConfig.SUPABASE_API_KEY;
+    String userId,accessToken;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         session = new SessionManager(this);
+
+        accessToken = session.getAccessToken();
+        userId = session.getUserId();
 
         if (!session.isLoggedIn()) {
             startActivity(new Intent(this, LoginActivity.class));
@@ -54,11 +61,45 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.imPerson).setOnClickListener(v -> {
             startActivity(new Intent(MainActivity.this, UploadVideoActivity.class));
         });
+
+    }
+    private void sendReaction(String videoId, String reaction) {
+        JSONObject json = new JSONObject();
+        try {
+            json.put("user_id", userId);
+            json.put("video_id", videoId);
+            json.put("reaction", reaction);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        RequestBody body = RequestBody.create(json.toString(), MediaType.get("application/json"));
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/video_reactions?on_conflict=video_id")
+                .addHeader("apikey", API_KEY)
+                .addHeader("Authorization", "Bearer " + accessToken)
+                .addHeader("Content-Type", "application/json")
+                .post(body)
+                .build();
+
+        new OkHttpClient().newCall(request).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Gửi phản ứng thất bại", Toast.LENGTH_SHORT).show());
+            }
+
+            @Override public void onResponse(Call call, Response response) {
+                if (response.isSuccessful()) {
+                    runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Phản ứng đã được ghi nhận", Toast.LENGTH_SHORT).show());
+                } else {
+                    Log.e("ReactionError", response.message());
+                }
+            }
+        });
     }
 
     private void fetchVideos() {
         Request request = new Request.Builder()
-                .url(SUPABASE_URL + "/rest/v1/videos?select=title,description,video_url")
+                .url(SUPABASE_URL + "/rest/v1/videos?select=title,description,video_url,id")
                 .addHeader("apikey", API_KEY)
                 .addHeader("Authorization", "Bearer " + API_KEY)
                 .build();
@@ -81,6 +122,7 @@ public class MainActivity extends AppCompatActivity {
                             item.title = obj.getString("title");
                             item.description = obj.getString("description");
                             item.videoUrl = obj.getString("video_url");
+                            item.videoId = obj.getString("id");
                             videoList.add(item);
                         }
 

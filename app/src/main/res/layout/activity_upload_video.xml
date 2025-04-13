@@ -27,4 +27,11 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Tải lên" />
+
+    <Button
+        android:id="@+id/btnBackToMain"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Quay lại trang chính"
+        android:layout_marginTop="24dp"/>
 </LinearLayout>

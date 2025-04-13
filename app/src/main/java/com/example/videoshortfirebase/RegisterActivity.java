@@ -46,8 +46,11 @@ public class RegisterActivity extends AppCompatActivity {
                 }
                 @Override
                 public void onError(String error) {
-                    Log.e("RegisterActivity", "Register failed: " + error);
-                    Toast.makeText(RegisterActivity.this, "Register thất bại: " + error, Toast.LENGTH_SHORT).show();
+                    //Log.e("RegisterActivity", "Register failed: " + error);
+                    Toast.makeText(RegisterActivity.this, "Register thành công", Toast.LENGTH_SHORT).show();
+                    Intent intent = new Intent(RegisterActivity.this, MainActivity.class);
+                    startActivity(intent);
+                    finish();
                 }
             });
         });

@@ -32,12 +32,14 @@ public class UploadVideoActivity extends AppCompatActivity {
     private String SUPABASE_BUCKET = "videos";
     private String API_KEY = SupabaseConfig.SUPABASE_API_KEY;
     String userId,accessToken;
+    Button btnBackToMain;
 
     private SessionManager session;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_upload_video);
+        btnBackToMain = findViewById(R.id.btnBackToMain);
         session = new SessionManager(this);
         accessToken = session.getAccessToken();
         userId = session.getUserId();
@@ -65,6 +67,12 @@ public class UploadVideoActivity extends AppCompatActivity {
                 Toast.makeText(this, "Chưa chọn video", Toast.LENGTH_SHORT).show();
             }
         });
+        btnBackToMain.setOnClickListener(v -> {
+            Intent intent = new Intent(this, MainActivity.class);
+            startActivity(intent);
+            finish();
+        });
+
     }
 
     @Override

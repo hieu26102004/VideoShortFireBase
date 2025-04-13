@@ -3,6 +3,7 @@ package com.example.videoshortfirebase;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -12,6 +13,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.viewpager2.widget.ViewPager2;
 
+import com.bumptech.glide.Glide;
 import com.example.videoshortfirebase.databinding.ActivityMainBinding;
 
 import org.json.JSONArray;
@@ -41,15 +43,16 @@ public class MainActivity extends AppCompatActivity {
     private final String SUPABASE_URL = SupabaseConfig.SUPABASE_URL;
     private final String API_KEY = SupabaseConfig.SUPABASE_API_KEY;
     String userId,accessToken;
+    ImageView uploaderAvatar;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         session = new SessionManager(this);
 
+
         accessToken = session.getAccessToken();
         userId = session.getUserId();
-
         if (!session.isLoggedIn()) {
             startActivity(new Intent(this, LoginActivity.class));
             finish();
@@ -57,7 +60,9 @@ public class MainActivity extends AppCompatActivity {
         }
         setContentView(R.layout.activity_main);
         vpager = findViewById(R.id.vpager);
+        uploaderAvatar = findViewById(R.id.uploaderAvatar);
         fetchVideos();
+
         findViewById(R.id.imPerson).setOnClickListener(v -> {
             startActivity(new Intent(MainActivity.this, UploadVideoActivity.class));
         });
@@ -68,6 +73,7 @@ public class MainActivity extends AppCompatActivity {
             startActivity(new Intent(MainActivity.this, UploadAvatarActivity.class));
         });
 
+        loadAvatar();
     }
     private void sendReaction(String videoId, String reaction) {
         JSONObject json = new JSONObject();
@@ -151,5 +157,16 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(MainActivity.this, LoginActivity.class);
         startActivity(intent);
         finish(); // Kết thúc Activity hiện tại
+    }
+    private void loadAvatar() {
+        String avatarUrl = SUPABASE_URL + "/storage/v1/object/public/avatars/" + userId + "/avatar.jpg";
+
+        runOnUiThread(() -> {
+            Glide.with(this)
+                    .load(avatarUrl)
+                    .placeholder(R.drawable.ic_avatar_placeholder)
+                    .error(R.drawable.ic_avatar_placeholder)
+                    .into(uploaderAvatar);
+        });
     }
 }

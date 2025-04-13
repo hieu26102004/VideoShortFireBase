@@ -278,18 +278,21 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHol
 
 
     private void loadReactionState(String videoId, VideoViewHolder holder) {
+        // Lấy trạng thái phản ứng của người dùng cho video này (xem họ đã "like" hoặc "dislike" chưa)
         Request request = new Request.Builder()
-                .url(SUPABASE_URL + "/rest/v1/video_reactions?video_id=eq." + videoId + "&user_id=eq." + sessionManager.getUserId())
+                .url(SUPABASE_URL + "/rest/v1/video_reactions?video_id=eq." + videoId)
                 .addHeader("apikey", API_KEY)
                 .addHeader("Authorization", "Bearer " + sessionManager.getAccessToken())
                 .build();
 
         client.newCall(request).enqueue(new Callback() {
-            @Override public void onFailure(Call call, IOException e) {
-                Log.e("Reaction", "Failed to load state: " + e.getMessage());
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Log.e("Reaction", "Lỗi khi tải trạng thái: " + e.getMessage());
             }
 
-            @Override public void onResponse(Call call, Response response) throws IOException {
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
                 String body = response.body().string();
                 try {
                     JSONArray arr = new JSONArray(body);
@@ -297,24 +300,41 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHol
                         try {
                             int likeCount = 0;
                             int dislikeCount = 0;
+
                             if (arr.length() > 0) {
-                                String reaction = arr.getJSONObject(0).getString("reaction");
-                                if (reaction.equals("like")) {
+                                // Đếm số lượt like và dislike đúng cách
+                                for (int i = 0; i < arr.length(); i++) {
+                                    String reaction = arr.getJSONObject(i).getString("reaction");
+                                    if (reaction.equals("like")) {
+                                        likeCount++;
+                                    } else if (reaction.equals("dislike")) {
+                                        dislikeCount++;
+                                    }
+                                }
+                            }
+
+                            // Cập nhật UI với số lượt like/dislike
+                            holder.likeCount.setText(likeCount + " Likes");
+                            holder.dislikeCount.setText(dislikeCount + " Dislikes");
+
+                            // Thay đổi màu nút theo phản ứng của người dùng
+                            boolean hasLiked = false;
+                            boolean hasDisliked = false;
+                            if (arr.length() > 0) {
+                                String userReaction = arr.getJSONObject(0).getString("reaction");
+                                if (userReaction.equals("like")) {
+                                    hasLiked = true;
                                     holder.likeButton.setColorFilter(Color.RED);
                                     holder.dislikeButton.setColorFilter(Color.GRAY);
-                                    likeCount++;
-                                } else {
+                                } else if (userReaction.equals("dislike")) {
+                                    hasDisliked = true;
                                     holder.likeButton.setColorFilter(Color.GRAY);
                                     holder.dislikeButton.setColorFilter(Color.BLUE);
-                                    dislikeCount++;
                                 }
                             } else {
                                 holder.likeButton.setColorFilter(Color.GRAY);
                                 holder.dislikeButton.setColorFilter(Color.GRAY);
                             }
-                            // Cập nhật tổng số like/dislike
-                            holder.likeCount.setText(likeCount + " Likes");
-                            holder.dislikeCount.setText(dislikeCount + " Dislikes");
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
@@ -325,6 +345,7 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHol
             }
         });
     }
+
     private void retrySendReaction(String videoId, String reaction, VideoViewHolder holder) {
         sendReaction(videoId, reaction, holder);
     }

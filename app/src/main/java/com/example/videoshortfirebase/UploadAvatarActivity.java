@@ -8,10 +8,14 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.bumptech.glide.Glide;
+
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -26,9 +30,11 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
+
 public class UploadAvatarActivity extends AppCompatActivity {
     static SupabaseConfig supabaseConfig;
 
+    private OkHttpClient client = new OkHttpClient();
     private static final int PICK_AVATAR_REQUEST = 1;
     private Uri avatarUri;
     private Button btnSelectAvatar, btnUploadAvatar;
@@ -36,7 +42,8 @@ public class UploadAvatarActivity extends AppCompatActivity {
     SessionManager sessionManager;
     private static final String SUPABASE_URL = supabaseConfig.SUPABASE_URL;
     private static final String API_KEY = supabaseConfig.SUPABASE_API_KEY;
-
+    TextView tvVideoCount;
+    Button btnBackToMain;
     String userId, accessToken;
 
     @Override
@@ -48,9 +55,17 @@ public class UploadAvatarActivity extends AppCompatActivity {
         accessToken = sessionManager.getAccessToken();
         userId = sessionManager.getUserId();
 
+        tvVideoCount = findViewById(R.id.tvVideoCount);
         imgAvatar = findViewById(R.id.imgAvatar);
         btnSelectAvatar = findViewById(R.id.btnSelectAvatar);
         btnUploadAvatar = findViewById(R.id.btnUploadAvatar);
+        btnBackToMain = findViewById(R.id.btnBackToMain);
+
+        btnBackToMain.setOnClickListener(v -> {
+            Intent intent = new Intent(this, MainActivity.class);
+            startActivity(intent);
+            finish();
+        });
 
         btnSelectAvatar.setOnClickListener(v -> {
             // Intent chọn ảnh từ thư viện
@@ -66,6 +81,9 @@ public class UploadAvatarActivity extends AppCompatActivity {
                 Toast.makeText(this, "Vui lòng chọn ảnh trước", Toast.LENGTH_SHORT).show();
             }
         });
+
+        loadAvatar();
+        NumberOfVideos(userId);
     }
 
     @Override
@@ -185,4 +203,52 @@ public class UploadAvatarActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
+    private void NumberOfVideos (String userId){
+
+        String url = SUPABASE_URL + "/rest/v1/videos?user_id=eq." + userId + "&select=id";
+
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("apikey", API_KEY)
+                .addHeader("Authorization", "Bearer " + API_KEY)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                e.printStackTrace();
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                if (response.isSuccessful()) {
+                    String jsonData = response.body().string();
+                    JSONArray array = null;
+                    try {
+                        array = new JSONArray(jsonData);
+                    } catch (JSONException e) {
+                        throw new RuntimeException(e);
+                    }
+                    int videoCount = array.length();
+
+                    runOnUiThread(() -> {
+                        tvVideoCount.setText("Số video: " + videoCount);
+                    });
+                }
+            }
+        });
+    }
+    private void loadAvatar() {
+        String avatarUrl = SUPABASE_URL + "/storage/v1/object/public/avatars/" + userId + "/avatar.jpg";
+
+        runOnUiThread(() -> {
+            Glide.with(this)
+                    .load(avatarUrl)
+                    .placeholder(R.drawable.ic_avatar_placeholder)
+                    .error(R.drawable.ic_avatar_placeholder)
+                    .into(imgAvatar);
+        });
+    }
+
+
 }

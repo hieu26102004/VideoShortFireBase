@@ -19,6 +19,8 @@ import android.widget.VideoView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -37,9 +39,9 @@ import okhttp3.Response;
 public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHolder> {
     private List<VideoItem> videoList;
     private Context context;
-    private static final String SUPABASE_URL = "https://oqdoljigjwouthaorjev.supabase.co";
-    private static final String API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xZG9samlnandvdXRoYW9yamV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQzMzM2NjcsImV4cCI6MjA1OTkwOTY2N30.89WAShh2B0wCxoi5QQDR4COB2YV9vtpmPkBdGcg0wBg";
-
+    static SupabaseConfig supabaseConfig;
+    private static String SUPABASE_URL = SupabaseConfig.SUPABASE_URL;
+    private static String API_KEY = SupabaseConfig.SUPABASE_API_KEY;
     private String accessToken;
     private String userId;
     private OkHttpClient client = new OkHttpClient();
@@ -88,7 +90,7 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHol
         });
 
         loadReactionState(item.videoId, holder);
-
+        loadUploaderInfo(item.userId, holder);
     }
 
     @Override
@@ -101,6 +103,9 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHol
         TextView title, description,likeCount,dislikeCount;
         ProgressBar progressBar;
         ImageView likeButton, dislikeButton;
+        ImageView uploaderAvatar;
+        TextView uploaderEmail;
+
 
         public VideoViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -110,10 +115,59 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHol
             progressBar = itemView.findViewById(R.id.videoProgressBar);
             likeButton = itemView.findViewById(R.id.favorites);
             dislikeButton = itemView.findViewById(R.id.dislike);
-            likeCount = itemView.findViewById(R.id.likeCount);  // Khai báo likeCount
+            likeCount = itemView.findViewById(R.id.likeCount);
             dislikeCount = itemView.findViewById(R.id.dislikeCount);
+            uploaderAvatar = itemView.findViewById(R.id.uploaderAvatar);
+            uploaderEmail = itemView.findViewById(R.id.uploaderEmail);
+
         }
     }
+    private void loadUploaderInfo(String userId, VideoViewHolder holder) {
+        Log.d("UserID", "ID: " + userId);
+        // Sửa URL để truy vấn bảng users_custom thay vì profiles
+        Request request = new Request.Builder()
+                .url(SUPABASE_URL + "/rest/v1/users_custom?id=eq." + userId)  // Truy vấn bảng users_custom
+                .addHeader("apikey", API_KEY)
+                .addHeader("Authorization", "Bearer " + sessionManager.getAccessToken())
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Log.e("UploaderInfo", "Failed: " + e.getMessage());
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String body = response.body().string();
+                try {
+                    JSONArray arr = new JSONArray(body);
+                    if (arr.length() > 0) {
+                        JSONObject user = arr.getJSONObject(0);
+                        String email = user.optString("email", "No email");
+                        String avatarUrl = user.optString("avatar_url", null);
+                        Log.d("UserID", "Email: " + email + ", Avatar URL: " + avatarUrl);
+                        // Cập nhật UI trên thread chính
+                        ((Activity) context).runOnUiThread(() -> {
+                            holder.uploaderEmail.setText(email);
+                            if (avatarUrl != null && !avatarUrl.isEmpty()) {
+                                // Dùng Glide để load ảnh
+                                Glide.with(context)
+                                        .load(avatarUrl)
+                                        .placeholder(R.drawable.ic_avatar_placeholder)
+                                        .circleCrop()
+                                        .into(holder.uploaderAvatar);
+                            }
+                        });
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+
     private void sendReaction(String videoId, String reaction, VideoViewHolder holder) {
         Request request = new Request.Builder()
                 .url(SUPABASE_URL + "/rest/v1/video_reactions?video_id=eq." + videoId + "&user_id=eq." + sessionManager.getUserId())

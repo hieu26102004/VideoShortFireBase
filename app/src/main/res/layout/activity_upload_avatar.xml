@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- ImageView to display the avatar -->
+    <ImageView
+        android:id="@+id/imgAvatar"
+        android:layout_width="150dp"
+        android:layout_height="150dp"
+        android:layout_gravity="center"
+        android:layout_marginBottom="16dp"
+        android:src="@drawable/ic_avatar_placeholder" />
+
+    <!-- Button to select avatar -->
+    <Button
+        android:id="@+id/btnSelectAvatar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Chọn Avatar" />
+
+    <!-- Button to upload avatar -->
+    <Button
+        android:id="@+id/btnUploadAvatar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tải lên Avatar"
+        android:layout_marginTop="16dp" />
+
+</LinearLayout>

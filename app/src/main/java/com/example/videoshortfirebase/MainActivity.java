@@ -61,6 +61,12 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.imPerson).setOnClickListener(v -> {
             startActivity(new Intent(MainActivity.this, UploadVideoActivity.class));
         });
+        findViewById(R.id.logout).setOnClickListener(v -> {
+            logout();
+        });
+        findViewById(R.id.uploaderAvatar).setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, UploadAvatarActivity.class));
+        });
 
     }
     private void sendReaction(String videoId, String reaction) {
@@ -99,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void fetchVideos() {
         Request request = new Request.Builder()
-                .url(SUPABASE_URL + "/rest/v1/videos?select=title,description,video_url,id")
+                .url(SUPABASE_URL + "/rest/v1/videos?select=title,description,video_url,id,user_id")
                 .addHeader("apikey", API_KEY)
                 .addHeader("Authorization", "Bearer " + API_KEY)
                 .build();
@@ -123,6 +129,7 @@ public class MainActivity extends AppCompatActivity {
                             item.description = obj.getString("description");
                             item.videoUrl = obj.getString("video_url");
                             item.videoId = obj.getString("id");
+                            item.userId = obj.getString("user_id");
                             videoList.add(item);
                         }
 
@@ -136,5 +143,13 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+    private void logout() {
+        // Xóa dữ liệu phiên làm việc
+        session.logout();
+        // Chuyển hướng người dùng đến màn hình đăng nhập
+        Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+        startActivity(intent);
+        finish(); // Kết thúc Activity hiện tại
     }
 }

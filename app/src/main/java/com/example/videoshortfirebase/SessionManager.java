@@ -22,6 +22,9 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class SessionManager {
+    static SupabaseConfig supabaseConfig;
+    private static String SUPABASE_URL = SupabaseConfig.SUPABASE_URL;
+    private static String API_KEY = SupabaseConfig.SUPABASE_API_KEY;
     private static final String PREF_NAME = "user_session";
     private static final String KEY_TOKEN = "access_token";
     private static final String KEY_REFRESH_TOKEN = "refresh_token";
@@ -62,6 +65,12 @@ public class SessionManager {
         editor.clear();
         editor.apply();
     }
+
+    public void saveAccessToken(String accessToken) {
+        editor.putString(KEY_TOKEN, accessToken);
+        editor.apply();
+    }
+
     public interface RefreshCallback {
         void onSuccess(String newAccessToken);
         void onError(String error);
@@ -81,8 +90,8 @@ public class SessionManager {
                 .build();
 
         Request request = new Request.Builder()
-                .url("https://your-supabase-url/auth/v1/token")
-                .addHeader("apikey", "your-api-key")
+                .url(SUPABASE_URL + "/auth/v1/token")
+                .addHeader("apikey", API_KEY)
                 .post(body)
                 .build();
 

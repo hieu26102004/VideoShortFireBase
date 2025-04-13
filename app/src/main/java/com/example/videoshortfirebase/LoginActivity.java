@@ -6,6 +6,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.json.JSONException;
@@ -31,6 +32,9 @@ public class LoginActivity extends AppCompatActivity {
         gotoSignup = findViewById(R.id.gotoSignup);
 
         loginBtn.setOnClickListener(v -> {
+
+            android.util.Log.d("LoginActivity", "Login button clicked");
+
             String email = emailInput.getText().toString();
             String password = passwordInput.getText().toString();
 
@@ -38,6 +42,8 @@ public class LoginActivity extends AppCompatActivity {
                 @Override
                 public void onSuccess(JSONObject response) {
                     try {
+                        android.util.Log.d("LoginActivity", "Login successful");
+                        android.util.Log.d("LoginActivity", "Response: " + response.toString());
                         String token = response.getString("access_token");
                         String refreshToken = response.getString("refresh_token");
                         String userId = response.getJSONObject("user").getString("id");
@@ -48,12 +54,17 @@ public class LoginActivity extends AppCompatActivity {
                         startActivity(intent);
                         finish();
                     } catch (JSONException e) {
+                        android.util.Log.e("LoginActivity", "Error parsing JSON", e);
                         e.printStackTrace();
                     }
                 }
 
                 @Override
-                public void onError(String error) {
+                public void onError(@NonNull String error) {
+
+                    android.util.Log.e("LoginActivity", "Login failed: " + error);
+
+
                     Toast.makeText(LoginActivity.this, "Login thất bại: " + error, Toast.LENGTH_SHORT).show();
                 }
             });
